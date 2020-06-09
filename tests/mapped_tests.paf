@@ -1,0 +1,9 @@
+wild_type	459	0	459	+	ADAR_deaminase_domain	1158	27	486	459	459	60	NM:i:0	ms:i:918	AS:i:918	nn:i:0	tp:A:P	cm:i:70	s1:i:450	s2:i:0	de:f:0	rl:i:0	cs:Z::459
+:27*ga	459	0	459	+	ADAR_deaminase_domain	1158	27	486	458	459	60	NM:i:1	ms:i:916	AS:i:916	nn:i:0	tp:A:P	cm:i:70	s1:i:450	s2:i:0	de:f:0.0022	rl:i:0	cs:Z:*ga:458
+:27*gc:44*gt*at	459	0	459	+	ADAR_deaminase_domain	1158	27	486	456	459	60	NM:i:3	ms:i:896	AS:i:896	nn:i:0	tp:A:P	cm:i:64	s1:i:441	s2:i:0	de:f:0.0065	rl:i:0	cs:Z:*gc:44*gt*at:412
+:72*gt*ag*cg:342*ca*ga*ga*at	459	0	459	+	ADAR_deaminase_domain	1158	27	486	452	459	60	NM:i:7	ms:i:848	AS:i:848	nn:i:0	tp:A:P	cm:i:61	s1:i:434	s2:i:0	de:f:0.0153	rl:i:0	cs:Z::45*gt*ag*cg:342*ca*ga*ga*at:65
+:84*ac*gc:78*cg:65*ta:60*ca:123*ct:1*ca*ga*ga*at	459	0	459	+	ADAR_deaminase_domain	1158	27	486	449	459	60	NM:i:10	ms:i:818	AS:i:818	nn:i:0	tp:A:P	cm:i:50	s1:i:408	s2:i:0	de:f:0.0218	rl:i:0	cs:Z::57*ac*gc:78*cg:65*ta:60*ca:123*ct:1*ca*ga*ga*at:65
+:72*gt*at:4*ta	459	0	459	+	ADAR_deaminase_domain	1158	27	486	456	459	60	NM:i:3	ms:i:888	AS:i:888	nn:i:0	tp:A:P	cm:i:63	s1:i:432	s2:i:0	de:f:0.0065	rl:i:0	cs:Z::45*gt*at:4*ta:407
+:27*ga:27*at:361*ct*gt*gt*at	459	0	459	+	ADAR_deaminase_domain	1158	27	486	453	459	60	NM:i:6	ms:i:866	AS:i:866	nn:i:0	tp:A:P	cm:i:65	s1:i:438	s2:i:0	de:f:0.0131	rl:i:0	cs:Z:*ga:27*at:361*ct*gt*gt*at:65
+:72*gt*at:4*ta:5-agccctc	452	0	452	+	ADAR_deaminase_domain	1158	27	486	449	459	60	NM:i:10	ms:i:848	AS:i:848	nn:i:0	tp:A:P	cm:i:62	s1:i:424	s2:i:0	de:f:0.0088	rl:i:0	cs:Z::45*gt*at:4*ta:4-cagccct:396
+:72*gt*at:4*ta:10+gggggggg	467	0	467	+	ADAR_deaminase_domain	1158	27	486	456	467	60	NM:i:11	ms:i:860	AS:i:860	nn:i:0	tp:A:P	cm:i:62	s1:i:424	s2:i:0	de:f:0.0087	rl:i:0	cs:Z::45*gt*at:4*ta:10+gggggggg:397
