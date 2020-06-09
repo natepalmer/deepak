@@ -54,7 +54,7 @@ def check_required_files(arguments):
     return
 
 
-if __name__ == "__main__":
+def call():
     arg_parser = build_parser()
     args = arg_parser.parse_args()
     check_required_files(args)
