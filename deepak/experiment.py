@@ -28,7 +28,7 @@ class Experiment:
         self.library.reference = self.reference
         self.target_mutations = list()
         self.filters = Filters()
-        self.mutations = dict()
+        self.mutations = Counter()
         self.set_filters()
 
     def make_writer(self):
@@ -53,7 +53,7 @@ class Experiment:
         return
 
     def common_mutations(self):
-        return Counter({k: len(self.mutations[k]) for k in self.mutations}).most_common()
+        return self.mutations.most_common()
 
     def scan_fields(self, x):
         components = chunk_paf(x)
@@ -81,12 +81,12 @@ class Experiment:
                 else:
                     if search_string not in self.target_mutations:
                         n_mutations += 1
-                    create_append(self.mutations, search_string, x.name)
+                    self.mutations[search_string] += 1
                 location += 1
             else:  # Indel
                 filter_failed = "Indel"
                 n_mutations += 1
-                create_append(self.mutations, ":" + str(location) + field, x.name)
+                self.mutations[":" + str(location) + field] += 1
                 if field[0] == "-":
                     location += len(field[1:])
         return lib_identity, n_mutations, filter_failed
