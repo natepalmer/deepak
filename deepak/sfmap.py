@@ -24,6 +24,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.patches import Circle
 from matplotlib.lines import Line2D
 from matplotlib.gridspec import GridSpec
+from deepak.globals import AA_LIST
 # from .plots import plot_cmaps, plot_colors
 
 #: Default colors for Enrich2 plots.

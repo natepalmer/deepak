@@ -17,6 +17,7 @@ Updated 11-4-19
 ###Priority 3 (optional features to add):
 * Dynamic filtering (remove mutations that occur frequently (synthesis), but allow singleton errors (sequencing))
 * Track editing rates for non-library mutations
+* Automatically calculate position parameter
 
 ###Priority 4 (improve style):
 * Write docstrings

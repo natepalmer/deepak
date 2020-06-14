@@ -97,9 +97,11 @@ class Experiment:
         self.read_numbers[category] += 1
         return
 
-    def classify(self):
+    def classify(self, report_number=10000):
         with open(self.fn) as paf_file:
-            for record in paf_file:
+            for i, record in enumerate(paf_file):
+                if i % report_number == 0:
+                    print("Processed {} reads, {} passed filtering".format(i, self.read_numbers["Valid"]))
                 self.n_records += 1
                 x = PafRecord(record.strip())
                 if self.filters.test(x, "len_aligned")[0]:

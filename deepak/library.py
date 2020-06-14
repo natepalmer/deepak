@@ -1,3 +1,5 @@
+from Bio import SeqIO
+
 
 class MutationLibrary(dict):
     __slots__ = ["_wt", "file", "reference"]
@@ -21,6 +23,9 @@ class MutationLibrary(dict):
                 else:
                     self["wt"] = 0
         return True
+
+    def add_reference_fasta(self, fn):
+        self.reference = str(SeqIO.read(fn, "fasta").seq)
 
     def generate_cs(self, query, alignment_pos, normalize=False):
         """ Generate a paf cs string for a query sequence.

@@ -89,3 +89,15 @@ def make_fig_dir(sample, base_dir, append):
     else:
         print("Overwriting files in {}".format(fig_dir))
     return fig_dir
+
+
+def run(sample, base_dir, n_reps, reference, append, min_counts=1, target=None, basename="Pafparser-"):
+    #if os.path.isfile(base_dir+sample+".csv"):
+    #    df, wt = csv_to_df_wt(base_dir+sample+".csv")
+    #else:
+    df, wt = pafparser_to_csv(sample, base_dir, n_reps, reference, append, target=target, basename=basename)
+    wt_aa_seq, density, geom_fold_change, log2_fc, z_scores, std_err = calculate(df, wt, reference)
+    fig_dir = make_fig_dir(sample, base_dir, append)
+    all_correlations(df, sample, fig_dir, min_counts)
+    make_heatmaps(sample, density, geom_fold_change, log2_fc, z_scores, std_err, wt_aa_seq, min_counts, fig_dir)
+    return df, wt

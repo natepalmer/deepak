@@ -49,7 +49,7 @@ def make_output_directory(base):
         bn = base[:-1]
     else:
         bn = base.rsplit("/")[-1].split(".")[0]
-    out_dir = "Pafparser-"+bn+"/"
+    out_dir = bn+"/"
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
     else:

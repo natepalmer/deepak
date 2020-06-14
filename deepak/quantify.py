@@ -1,13 +1,14 @@
 import os
 
-import dill
+#import dill
 import numpy as np
 import pandas as pd
-from Bio import SeqIO
+from Bio import SeqIO, Seq
 import scipy.stats as st
 
 import deepak.globals
 import deepak.utilities
+from deepak.library import MutationLibrary
 from deepak.plot import replace_wt, all_correlations, make_heatmaps, make_fig_dir
 
 pad = 948
@@ -21,18 +22,79 @@ target_G5 = ":41*ag"
 
 
 class Quantification:
+    """
+    Class used to turn the Valid.csv output file into a pandas data frame suitable for plotting with sfmap or other
+    inspection. The resultant data frame has rows corresponding to integer positions in the sequence and columns
+    corresponding to amino acids.
+    """
 
-    def __init__(self, config_file):
+    def __init__(self, config_file, lib_fn, reference_fn, pos):
         self.config_file = config_file
+        self.library = MutationLibrary()
+        self.library.add_reference_fasta(reference_fn)
+        self.reference_AA = Seq.translate(self.library.reference)
+        self.library.construct(lib_fn, pos)
+        # get library info to create shape of DF
+        self.counts = None
+        self.edits = None
 
     def configure(self, config_file):
         with open(config_file) as config:
             for line in config:
                 attribute, value = line.split()
 
-    def generate_library(self):
-        self.PafParser.generate_library(self.library_fn, self.alignment_position)
-        return True
+    def create_df(self):
+        lib_members = [translate_codon(item, self.library.reference) for item in self.library.keys() if item != "wt"]
+        start = min(lib_members, key=lambda x: x[0])[0]
+        end = max(lib_members, key=lambda x: x[0])[0]
+        self.counts = pd.DataFrame(np.zeros((1+end-start, 20)), index=range(start, end+1), columns=deepak.globals.AA_LIST)
+        self.edits = self.counts.copy()
+
+    def count_csv(self, csv, target):
+        data = pd.read_csv(csv, header=0, index_col=0)
+        wt_counts = 0
+        wt_edits = 0
+        for i, row in data.iterrows():
+            identity = row["lib_identity"]
+            if identity == "wt":
+                wt_counts += 1
+                if search_snp_paf(row["cs_tag"], target):
+                    wt_edits += 1
+            else:
+                position, aa = translate_codon(identity, self.library.reference)
+                self.counts.loc[position, aa] += 1
+                if search_snp_paf(row["cs_tag"], target):
+                    self.edits.loc[position, aa] += 1
+        self.tally_wt(wt_counts, wt_edits)
+        return
+
+    def tally_wt(self, counts, edits):
+        for i in self.counts.index:
+            aa = self.reference_AA[i]
+            self.counts.loc[i, aa] = counts
+            self.edits.loc[i, aa] = edits
+        return
+
+
+def translate_codon(cs, reference):
+    """ Translates a cs string into a tuple in the form (position, amino_acid) """
+    fields = deepak.utilities.chunk_paf(cs)
+    position = int(fields[0][1:])
+    idx = position // 3
+    pad = position % 3
+    wt_codon = reference[3 * idx:3 * idx + 3]
+    codon = wt_codon
+    for item in fields[1:]:
+        if item[0] == ":":
+            pad += int(item[1])
+            continue
+        elif item[0] == "*":
+            assert wt_codon[pad] == item[1].upper()
+            codon = codon[:pad] + item[2].upper() + codon[1 + pad:]
+            pad += 1
+        else:
+            raise Exception("Invalid cs string")
+    return idx, Seq.translate(codon)
 
 
 def load_pickled_data(fn):
