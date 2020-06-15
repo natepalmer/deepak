@@ -54,15 +54,15 @@ def check_required_files(arguments):
 
 
 def call():
-    #arg_parser = build_parser()
-    #args = arg_parser.parse_args()
-    #check_required_files(args)
-    #analyze(aligned_reads=args.reads, library=args.library, reference=args.reference,
-    #        position=args.position, output=args.output, excluded=args.excluded, filter=args.filter)
-    base_name = "../5G-W2-1M"
-    analyze(aligned_reads=base_name+".paf", library="../dms_libs/5_short.csv", reference="../deaminase.fa",
-            position=54, output=base_name, excluded="../targets.txt", filter=0)
+    arg_parser = build_parser()
+    args = arg_parser.parse_args()
+    check_required_files(args)
+    analyze(aligned_reads=args.reads, library=args.library, reference=args.reference,
+            position=args.position, output=args.output, excluded=args.excluded, filter=args.filter)
+    #base_name = "../5G-W2-1M"
+    #analyze(aligned_reads=base_name+".paf", library="../dms_libs/5_short.csv", reference="../deaminase.fa",
+    #        position=54, output=base_name, excluded="../targets.txt", filter=0)
 
 
-if __name__ == "__main__":
-    call()
+#if __name__ == "__main__":
+#    call()
