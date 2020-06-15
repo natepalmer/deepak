@@ -51,20 +51,21 @@ class Quantification:
         self.edits = self.counts.copy()
 
     def count_csv(self, csv, target):
-        data = pd.read_csv(csv, header=0, index_col=0)
+        data = pd.read_csv(csv, header=0, index_col=0, chunksize=10000, usecols=["lib_identity", "cs_tag"])
         wt_counts = 0
         wt_edits = 0
-        for i, row in data.iterrows():
-            identity = row["lib_identity"]
-            if identity == "wt":
-                wt_counts += 1
-                if search_snp_paf(row["cs_tag"], target):
-                    wt_edits += 1
-            else:
-                position, aa = translate_codon(identity, self.library.reference)
-                self.counts.loc[position, aa] += 1
-                if search_snp_paf(row["cs_tag"], target):
-                    self.edits.loc[position, aa] += 1
+        for chunk in data:
+            for i, row in chunk.iterrows():
+                identity = row["lib_identity"]
+                if identity == "wt":
+                    wt_counts += 1
+                    if search_snp_paf(row["cs_tag"], target):
+                        wt_edits += 1
+                else:
+                    position, aa = translate_codon(identity, self.library.reference)
+                    self.counts.loc[position, aa] += 1
+                    if search_snp_paf(row["cs_tag"], target):
+                        self.edits.loc[position, aa] += 1
         self.tally_wt(wt_counts, wt_edits)
         return
 

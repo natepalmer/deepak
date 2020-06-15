@@ -117,7 +117,7 @@ class Experiment:
         with open(self.fn) as paf_file:
             for i, record in enumerate(paf_file):
                 if i % report_number == 0:
-                    print("Processed {} reads, {} passed filtering".format(i, self.read_numbers["Valid"]))
+                    print("Processed {} reads, {} passed filtering".format(i, self.read_numbers["Valid"]), flush=True)
                 self.n_records += 1
                 x = PafRecord(record.strip())
                 if self.filters.test(x, "len_aligned")[0]:
