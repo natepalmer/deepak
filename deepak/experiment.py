@@ -6,7 +6,7 @@ from io import StringIO
 import pandas as pd
 from Bio import SeqIO
 
-from deepak.utilities import chunk_paf, resolve_codon, create_append
+from deepak.utilities import chunk_paf, resolve_codon
 from deepak.pafparser import PafRecord
 from deepak.globals import COLS
 from deepak.configuration import FILTERS
@@ -19,7 +19,8 @@ class Experiment:
     def __init__(self, file_name, reference):
         self.n_records = 0
         self.categories = ("Alignment", "Indels", "Many mutations", "Multiple identity", "Valid")
-        self.filtered_reads = {key: self.make_writer() for key in self.categories}
+        self.data_files = dict()
+        self.filtered_reads = dict()
         self.read_numbers = {key: 0 for key in self.categories}
         self.misaligned = list()
         self.fn = file_name
@@ -30,6 +31,20 @@ class Experiment:
         self.filters = Filters()
         self.mutations = Counter()
         self.set_filters()
+
+    def create_output_structure(self, out_dir):
+        read_data = "{}data".format(out_dir)
+        if not os.path.isdir(read_data):
+            os.mkdir(read_data)
+        for cat in self.categories:
+            file = open(f"{read_data}/{cat}.csv", mode="w")
+            writer = csv.writer(file)
+            writer.writerow(COLS)  # header
+            self.filtered_reads[cat] = (writer, file)
+        return
+
+    def initialize_writers(self):
+        return {key: self.make_writer() for key in self.categories}
 
     def make_writer(self):
         stream = StringIO()
@@ -46,10 +61,10 @@ class Experiment:
         self.target_mutations = mutation_list
 
     def note_failed_alignment(self, query):
-        self.filtered_reads["Alignment"][0].writerow(query.to_csv())
-        if query.name not in self.misaligned:
-            self.misaligned.append(query.name)
-            self.read_numbers["Alignment"] += 1
+        #self.filtered_reads["Alignment"][0].writerow(query.to_csv())
+        #if query.name not in self.misaligned:
+        #self.misaligned.append(query.name)
+        self.read_numbers["Alignment"] += 1
         return
 
     def common_mutations(self):
@@ -81,23 +96,24 @@ class Experiment:
                 else:
                     if search_string not in self.target_mutations:
                         n_mutations += 1
-                    self.mutations[search_string] += 1
+                    #self.mutations[search_string] += 1
                 location += 1
             else:  # Indel
                 filter_failed = "Indel"
                 n_mutations += 1
-                self.mutations[":" + str(location) + field] += 1
+                #self.mutations[":" + str(location) + field] += 1
                 if field[0] == "-":
                     location += len(field[1:])
         return lib_identity, n_mutations, filter_failed
 
     def set_read_status(self, paf_record, category):
-        res = paf_record.to_csv()
-        self.filtered_reads[category][0].writerow(res)
+        if category == "Valid":
+            res = paf_record.to_csv()
+            self.filtered_reads[category][0].writerow(res)
         self.read_numbers[category] += 1
         return
 
-    def classify(self, report_number=10000):
+    def classify(self, report_number=100000):
         with open(self.fn) as paf_file:
             for i, record in enumerate(paf_file):
                 if i % report_number == 0:
@@ -123,10 +139,13 @@ class Experiment:
                             self.library[lib_identity.pop()] += 1
                 else:
                     self.note_failed_alignment(x)
-        for cat in self.categories:
-            stream = self.filtered_reads[cat][1]
-            stream.seek(0)
-            self.filtered_reads[cat] = pd.read_csv(stream, names=COLS)
+        # close csv files
+        for cat, double in self.filtered_reads.items():
+            double[1].close()
+        #for cat in self.categories:
+        #    stream = self.filtered_reads[cat][1]
+        #    stream.seek(0)
+        #    self.filtered_reads[cat] = pd.read_csv(stream, names=COLS)
         return True
 
     def export_summary(self, outer_dir):
@@ -139,6 +158,13 @@ class Experiment:
             print("\n".join(["{}\t{}".format(k[0], k[1]) for k in self.common_mutations()]), file=mut_out)
         with open(summary + "/stats.tsv", mode="w") as stats_out:
             print("\n".join(["{}\t{}".format(k, self.read_numbers[k]) for k in self.read_numbers]), file=stats_out)
+        return
+
+    def run(self, out_dir):
+        #Create data directories and files
+        self.create_output_structure(out_dir)
+        self.classify()
+        self.export_summary(out_dir)
         return
 
     def export_data(self, outer_dir):

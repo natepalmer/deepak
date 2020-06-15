@@ -21,7 +21,11 @@ class PafRecord:
         self.len_matches = int(fields[9])
         self.len_aligned = int(fields[10])
         self.mapping_qual = int(fields[11])
-        self.tags = {x.partition(":")[0]: x.partition(":")[2].partition(":")[2] for x in fields[12:]}
+        self.tags = dict()
+        for x in fields[12:]:
+            y = x.partition(":")
+            self.tags[y[0]] = y[2].partition(":")[2]
+        #self.tags = {x.partition(":")[0]: x.partition(":")[2].partition(":")[2] for x in fields[12:]}
         self.n_mutations = None
         self.lib_identity = None
         self.indel = False
@@ -59,8 +63,13 @@ class PafRecord:
 
     def to_csv(self):
         return [self.name, self.length, self.start, self.end, self.ref_start, self.ref_end, self.len_matches,
-                self.len_aligned, self.tags["cs"], self.n_mutations,
-                str(self.lib_identity).replace("{", "").replace("'", "").replace("}", "")]
+                self.len_aligned, self.tags["cs"], self.n_mutations, self.str_lib()]
+
+    def str_lib(self):
+        if self.lib_identity is None:
+            return "None"
+        else:
+            return "|".join(self.lib_identity)
 
     def __len__(self):
         return self.length

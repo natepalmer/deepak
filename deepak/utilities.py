@@ -40,8 +40,9 @@ def chunk_paf(paf_record):
         cs = paf_record
     else:
         cs = paf_record.tags["cs"]
-    separable_cs = re.sub(r'(?<!\A)([-:*+])', r',\1', cs)
-    return separable_cs.split(",")
+    #separable_cs = re.sub(r'(?<!\A)([-:*+])', r',\1', cs)
+    #return separable_cs.split(",")
+    return re.split(r'(?=[-:*+])', cs)[1:]
 
 
 def make_output_directory(base):
@@ -54,6 +55,6 @@ def make_output_directory(base):
         os.mkdir(out_dir)
     else:
         print("Warning: "+out_dir+" already exists, overwriting files in 5 seconds")
-        sleep(5)
+        #sleep(5)
         print("Overwriting")
     return out_dir
