@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import seaborn as sns
+import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -16,26 +17,30 @@ def replace_wt(df, seq, values):
     return df
 
 
-def correlation_plot(df1, df2, sample_name, min_counts):
-    x = df1["counts"]
-    y = df2["counts"]
+def flatten_to_series(df):
+    return pd.Series(df.to_numpy().flatten())
+
+
+def correlation_plot(quant_1, quant_2, min_counts):
+    x = flatten_to_series(quant_1.counts)
+    y = flatten_to_series(quant_2.counts)
     rsq = np.corrcoef(x, y)[0, 1]
     fig, axis = plt.subplots(1, 2, figsize=(10, 5))
     ax = sns.regplot(np.log(x), np.log(y), fit_reg=False, scatter_kws={"alpha": 0.2}, ax=axis[0])
-    ax.set_xlabel("Replicate 1")
-    ax.set_ylabel("Replicate 2")
+    ax.set_xlabel(quant_1.name)
+    ax.set_ylabel(quant_2.name)
     ax.set_title("log read counts")
     ax.text(0.1, 0.9, r"$R^2$ = " + str(round(rsq ** 2, 3)), transform=ax.transAxes)
-    a = (df1["edited_counts"] / x).mask(x < min_counts)
-    b = (df2["edited_counts"] / y).mask(y < min_counts)
+    a = (flatten_to_series(quant_1.edits) / x).mask(x < min_counts)
+    b = (flatten_to_series(quant_2.edits) / y).mask(y < min_counts)
     select = b.notnull() & a.notnull()
     rsq2 = np.corrcoef(a[select], b[select])[0, 1]
     ax2 = sns.regplot(a, b, fit_reg=False)
     ax2.text(0.8, 0.9, r"$R^2$ = " + str(round(rsq2 ** 2, 3)), transform=ax2.transAxes)
-    ax2.set_xlabel("Replicate 1")
-    ax2.set_ylabel("Replicate 2")
+    ax2.set_xlabel(quant_1.name)
+    ax2.set_ylabel(quant_2.name)
     ax2.set_title("editing rates")
-    fig.suptitle("{} replicate correlation".format(sample_name))
+    fig.suptitle(f"{quant_1.name} vs {quant_2.name} replicate correlation")
     plt.axis('square')
     plt.tight_layout()
     return fig
@@ -59,6 +64,13 @@ def all_correlations(df, sample_name, fig_dir, min_counts):
     return
 
 
+def make_correlation_plots(quant_list, fig_dir, min_counts=1):
+    for x, y in itertools.combinations(quant_list, 2):
+        figure = correlation_plot(x, y, min_counts=min_counts)
+        figure.savefig(fig_dir+f'/{x.name}_{y.name}_correlation.pdf')
+    return
+
+
 def hmap_plot(file, df, style, wt_seq, **kwargs):
     pp = PdfPages(file)
     try:
@@ -68,22 +80,33 @@ def hmap_plot(file, df, style, wt_seq, **kwargs):
     return
 
 
-def make_heatmaps(sample, density, geom, log2_fold_change, z_scores, std_err, wt_aa_seq, min_counts, fig_dir):
-    hmap_plot(fig_dir+"/{}_density.pdf".format(sample), density, "logcounts", wt_aa_seq,
+def make_heatmaps(sample, stat_dict, wt_aa_seq, fig_dir, min_counts=1, lfc=True):
+    start_idx = stat_dict["mean"].index[0]
+    wt = wt_aa_seq[start_idx]
+    hmap_plot(fig_dir+"/{}_density.pdf".format(sample), stat_dict["counts"], "logcounts", wt,
               title="{} count density".format(sample))
-    hmap_plot(fig_dir+"/{}_geom_rates.pdf".format(sample), geom.mask(density < min_counts), "scores", wt_aa_seq,
-              title="{} log2 fold change in editing rate (geometric mean)".format(sample), vmin=-4)
-    hmap_plot(fig_dir+"/{}_rates.pdf".format(sample), log2_fold_change.mask(density < min_counts), "scores", wt_aa_seq,
-              title="{} log2 fold change in editing rate (arithmetic mean)".format(sample), vmin=-4)
-    hmap_plot(fig_dir+"/{}_z-scores.pdf".format(sample), z_scores, "scores", wt_aa_seq,
-              title="{} Z-scores with standard error".format(sample), vmin=-4, vmax=10, df_se=std_err)
+    if lfc:
+        log2_fold_change = np.log2(stat_dict["mean"] / stat_dict["mean"].loc[start_idx, wt_aa_seq[start_idx]])
+        hmap_plot(fig_dir+"/{}_lfc.pdf".format(sample), log2_fold_change.mask(stat_dict["counts"] < min_counts),
+                  "scores", wt, title="{} mean log2 fold change in editing rate".format(sample), vmin=-4)
+
+        geom_lfc = np.log2(stat_dict["geom"] / stat_dict["geom"].loc[start_idx, wt_aa_seq[start_idx]])
+        hmap_plot(fig_dir+"/{}_geom_lfc.pdf".format(sample), geom_lfc.mask(stat_dict["counts"] < min_counts), "scores",
+                  wt, title="{} geometric mean log2 fold change in editing rate".format(sample), vmin=-4)
+
+    else:
+        # Need to create custom color map for plotting pure rates
+        raise Exception("Pure rate plotting not implemented")
+
+    hmap_plot(fig_dir+"/{}_z-scores.pdf".format(sample), stat_dict["z-scores"], "scores", wt,
+              title="{} Z-scores with standard error".format(sample), vmin=-4, vmax=10, df_se=stat_dict["std_error"])
     return
 
 
-def make_fig_dir(sample, base_dir, append):
-    if not os.path.isdir(base_dir+"figures"):
-        os.mkdir(base_dir+"figures")
-    fig_dir = base_dir+"figures/"+sample+append
+def make_fig_dir(sample, base_dir, append=""):
+    if not os.path.isdir(base_dir):
+        os.mkdir(base_dir)
+    fig_dir = os.path.join(base_dir, "figures")
     if not os.path.isdir(fig_dir):
         os.mkdir(fig_dir)
     else:

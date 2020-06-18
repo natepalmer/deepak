@@ -12,6 +12,7 @@ setup(name='deepak',
           'numpy', 'scipy', 'matplotlib', 'pandas', 'biopython'
       ],
       entry_points={
-            'console_scripts': ['deepak=deepak.main:call'],
+            'console_scripts': ['deepak-classify=deepak.main:classify',
+                                'deepak-quantify=deepak.main:quantify'],
       },
       zip_safe=False)

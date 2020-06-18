@@ -1,4 +1,5 @@
 import os
+from functools import reduce
 
 #import dill
 import numpy as np
@@ -9,7 +10,7 @@ import scipy.stats as st
 import deepak.globals
 import deepak.utilities
 from deepak.library import MutationLibrary
-from deepak.plot import replace_wt, all_correlations, make_heatmaps, make_fig_dir
+from deepak.plot import replace_wt, make_correlation_plots, make_heatmaps, make_fig_dir
 
 pad = 948
 target_T3 = ":917*ag"
@@ -28,8 +29,10 @@ class Quantification:
     corresponding to amino acids.
     """
 
-    def __init__(self, config_file, lib_fn, reference_fn, pos):
-        self.config_file = config_file
+    def __init__(self, name, csv, lib_fn, reference_fn, pos, target, run=False):
+        self.name = name
+        self.csv = csv
+        self.target = target
         self.library = MutationLibrary()
         self.library.add_reference_fasta(reference_fn)
         self.reference_AA = Seq.translate(self.library.reference)
@@ -37,11 +40,10 @@ class Quantification:
         # get library info to create shape of DF
         self.counts = None
         self.edits = None
-
-    def configure(self, config_file):
-        with open(config_file) as config:
-            for line in config:
-                attribute, value = line.split()
+        self.stats = dict()
+        self.create_df()
+        if run:
+            self.count_csv(self.csv, self.target)
 
     def create_df(self):
         lib_members = [translate_codon(item, self.library.reference) for item in self.library.keys() if item != "wt"]
@@ -51,7 +53,7 @@ class Quantification:
         self.edits = self.counts.copy()
 
     def count_csv(self, csv, target):
-        data = pd.read_csv(csv, header=0, index_col=0, chunksize=10000, usecols=["lib_identity", "cs_tag"])
+        data = pd.read_csv(csv, header=0, chunksize=1000, usecols=["lib_identity", "cs_tag"])
         wt_counts = 0
         wt_edits = 0
         for chunk in data:
@@ -83,7 +85,7 @@ def translate_codon(cs, reference):
     position = int(fields[0][1:])
     idx = position // 3
     pad = position % 3
-    wt_codon = reference[3 * idx:3 * idx + 3]
+    wt_codon = reference[3 * idx : 3 * idx + 3]
     codon = wt_codon
     for item in fields[1:]:
         if item[0] == ":":
@@ -183,7 +185,8 @@ def z(p, n, wt_rate, wt_n, pooled=True, size=1):
     if pooled:
         combined_p = (wt_rate * wt_n + n * p) / (n + wt_n)
         return (p - wt_rate) / np.sqrt(combined_p * (1 - combined_p) * ((1 / n) + (1 / wt_n)))
-    return (p - wt_rate) / np.sqrt((wt_rate * (1 - wt_rate) / wt_n) + (p * (1 - p) / n))
+    else:
+        return (p - wt_rate) / np.sqrt((wt_rate * (1 - wt_rate) / wt_n) + (p * (1 - p) / n))
 
 
 def add_stats(df, wt_rate, wt_n):
@@ -290,6 +293,55 @@ def load_replicate_data(sample, base_dir, n_reps, reference, append):
     return df, wt, data_sets
 
 
+def calc_geom_fc(quant_list, total_counts):
+    x_bar = 1
+    for i, rep in enumerate(quant_list):
+        # Zero total counts results in NaN
+        p = rep.counts / total_counts
+        # Members with zero counts in one replicate default to rate of other replicate, i.e. NaN ** 0 == 1
+        r = (rep.edits / rep.counts).fillna(0)
+        x_bar *= np.power(r, p)
+    return x_bar
+
+
+def calculate_stats(quant_list):
+    """ Calculate statistics from a list of Quantification objects.
+
+    Returns a dictionary of data frames described by the dict keys:
+    * counts
+    * geom
+    * mean
+    * z_scores
+    * std_err
+    * p_values
+    """
+
+    total_counts = reduce(lambda x, y: x.add(y, fill_value=0), [rep.counts for rep in quant_list])
+    total_edits = reduce(lambda x, y: x.add(y, fill_value=0), [rep.edits for rep in quant_list])
+    mean_rates = total_edits / total_counts
+    seq_start = total_counts.index[0]
+    wt_idx = (seq_start, quant_list[0].reference_AA[seq_start])
+    wt_n = total_counts.loc[wt_idx]
+    wt_edits = total_edits.loc[wt_idx]
+    wt_rate = wt_edits / wt_n
+
+    stat_dict = {"counts": total_counts,
+                 "mean": mean_rates,
+                 "geom": calc_geom_fc(quant_list, total_counts)
+                 }
+
+    z_scores = [list(map(z, row, total_counts.loc[i, :], [wt_rate]*len(row), [wt_n]*len(row)))
+                for i, row in mean_rates.iterrows()]
+    stat_dict["z-scores"] = pd.DataFrame(z_scores, index=total_counts.index, columns=total_counts.columns)
+
+    combined_p = (wt_rate * wt_n + mean_rates * total_counts) / (total_counts + wt_n)
+    stat_dict["std_error"] = np.sqrt(combined_p * (1 - combined_p) * ((1 / total_counts) + (1 / wt_n)))
+
+    stat_dict["p-value"] = st.norm.sf(np.abs(stat_dict["z-scores"])) * 2  # two-tailed test
+
+    return stat_dict
+
+
 def calculate(df, wt, reference):
     df = add_seq_info(df)
 
@@ -348,10 +400,24 @@ def run_from_pickle(sample, base_dir, n_reps, reference, append, min_counts=1):
     return df, wt
 
 
-def run_from_csv(filenames, lib_file, target_file):
-    #df_0 = read_csv_to_lib_df(filenames[0], 0, library, target)
-    #for i, fn in enumerate(filenames):
-    pass
+def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, target, save_quants=True):
+    quant_list = [Quantification(f'{sample_name}-{i+1}', f, lib_file, reference, pos, target, run=True)
+                  for i, f in enumerate(filenames)]
+
+    stat_dict = calculate_stats(quant_list)
+
+    fig_dir = make_fig_dir(sample_name, output_dir)
+    make_correlation_plots(quant_list, fig_dir, min_counts=1)
+    make_heatmaps(sample_name, stat_dict, quant_list[0].reference_AA, fig_dir, min_counts=1, lfc=True)
+
+    if save_quants:
+        for q in quant_list:
+            d = os.path.join(output_dir, f'{sample_name}_{q.name}')
+            os.mkdir(d)
+            q.counts.to_csv(os.path.join(d, "counts.csv"))
+            q.edits.to_csv(os.path.join(d, "edits.csv"))
+
+    return
 
 
 def read_csv_to_lib_df(fn, rep_number, library, target):
