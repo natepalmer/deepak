@@ -82,15 +82,16 @@ def hmap_plot(file, df, style, wt_seq, **kwargs):
 
 def make_heatmaps(sample, stat_dict, wt_aa_seq, fig_dir, min_counts=1, lfc=True):
     start_idx = stat_dict["mean"].index[0]
-    wt = wt_aa_seq[start_idx]
+    wt = wt_aa_seq[start_idx:]
     hmap_plot(fig_dir+"/{}_density.pdf".format(sample), stat_dict["counts"], "logcounts", wt,
               title="{} count density".format(sample))
     if lfc:
-        log2_fold_change = np.log2(stat_dict["mean"] / stat_dict["mean"].loc[start_idx, wt_aa_seq[start_idx]])
+        pad = 0.00001
+        log2_fold_change = np.log2((stat_dict["mean"]+pad) / stat_dict["mean"].loc[start_idx, wt_aa_seq[start_idx]])
         hmap_plot(fig_dir+"/{}_lfc.pdf".format(sample), log2_fold_change.mask(stat_dict["counts"] < min_counts),
                   "scores", wt, title="{} mean log2 fold change in editing rate".format(sample), vmin=-4)
 
-        geom_lfc = np.log2(stat_dict["geom"] / stat_dict["geom"].loc[start_idx, wt_aa_seq[start_idx]])
+        geom_lfc = np.log2((stat_dict["geom"]+pad) / stat_dict["geom"].loc[start_idx, wt_aa_seq[start_idx]])
         hmap_plot(fig_dir+"/{}_geom_lfc.pdf".format(sample), geom_lfc.mask(stat_dict["counts"] < min_counts), "scores",
                   wt, title="{} geometric mean log2 fold change in editing rate".format(sample), vmin=-4)
 

@@ -100,12 +100,6 @@ def translate_codon(cs, reference):
     return idx, Seq.translate(codon)
 
 
-def load_pickled_data(fn):
-    with open(fn, mode="rb") as infile:
-        analysis = dill.load(infile)
-    return analysis
-
-
 def search_snp_paf(paf_record, target):
     target_fields = deepak.utilities.chunk_paf(target)
     assert len(target_fields) == 2  # Should be ":n*{ref}{var}"
@@ -156,27 +150,6 @@ def decode_paf(paf_str):
         result_dna += ref[dna_loc:]
     aa = result_dna.translate()[pos - (pad // 3)]
     return int(pos), aa
-
-
-def add_seq_info(data_frame):
-    positions, amino_acids = list(zip(*map(decode_paf, data_frame["name"])))
-    data_frame["position"] = positions
-    data_frame["amino_acid"] = amino_acids
-    return data_frame
-
-
-def read_analysis(analysis_obj, target_mutation):
-    data = {"name": [], "edited_counts": [], "counts": []}
-    for member in analysis_obj.library.items():
-        edited, counts = detect_edits(member, target_mutation)
-        data["name"].append(member[0])
-        data["edited_counts"].append(edited)
-        data["counts"].append(counts)
-
-    df = pd.DataFrame(data)
-    wt = df.loc[df.name == "wt"]
-    df = df.loc[df.name != "wt"]
-    return df, wt
 
 
 def z(p, n, wt_rate, wt_n, pooled=True, size=1):
@@ -388,18 +361,6 @@ def csv_to_df_wt(fn):
     return df, wt
 
 
-def run_from_pickle(sample, base_dir, n_reps, reference, append, min_counts=1):
-    if os.path.isfile(base_dir+sample+".csv"):
-        df, wt = csv_to_df_wt(base_dir+sample+".csv")
-    else:
-        df, wt = pafparser_to_csv(sample, base_dir, n_reps, reference, append)
-    wt_aa_seq, density, geom_fold_change, log2_fc, z_scores, std_err = calculate(df, wt, reference)
-    fig_dir = make_fig_dir(sample, base_dir, append)
-    all_correlations(df, sample, fig_dir, min_counts)
-    make_heatmaps(sample, density, geom_fold_change, log2_fc, z_scores, std_err, wt_aa_seq, min_counts, fig_dir)
-    return df, wt
-
-
 def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, target, save_quants=True):
     quant_list = [Quantification(f'{sample_name}-{i+1}', f, lib_file, reference, pos, target, run=True)
                   for i, f in enumerate(filenames)]
@@ -412,8 +373,9 @@ def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, targ
 
     if save_quants:
         for q in quant_list:
-            d = os.path.join(output_dir, f'{sample_name}_{q.name}')
-            os.mkdir(d)
+            d = os.path.join(output_dir, q.name)
+            if not os.path.isdir(d):
+                os.mkdir(d)
             q.counts.to_csv(os.path.join(d, "counts.csv"))
             q.edits.to_csv(os.path.join(d, "edits.csv"))
 
@@ -430,3 +392,7 @@ def read_csv_to_lib_df(fn, rep_number, library, target):
                "rep{}_counts".format(rep_number): counts}
         data.append(row)
     return pd.DataFrame(data)
+
+
+if __name__ == "__main__":
+    run_files("5G-W2", ["../5G-W2-1M/data/Valid.csv"], "5G-W2-output", "../dms_libs/5_short.csv", "../deaminase.fa", 54, ":41*ag")
