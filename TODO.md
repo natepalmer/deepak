@@ -1,9 +1,8 @@
 #To do
-Updated 11-4-19
+Updated 6-18-20
 
 ###Priority 0 (breaks the program):
-* Write methods to quantify editing from csv output data rather than analysis pickled objects
-* Restructure code to improve readability, robustness, versatility, modularity, and performance
+* Write pipeline to accomodate non-overlapping paired reads
 
 ###Priority 1 (necessary features to add):
 * Altered heatmap color scheme (white - red for editing rate)
@@ -11,7 +10,7 @@ Updated 11-4-19
 
 ###Priority 2 (improve performance):
 * Make option to bypass post-alignment filtering by setting filters at the alignment level
-* Concurrent filtering, library assignment, and editing quantification to improve performance
+* Concurrent filtering, library assignment, and editing quantification
 * Single library construction for multiple sample quantification
 
 ###Priority 3 (optional features to add):
@@ -23,3 +22,4 @@ Updated 11-4-19
 * Write docstrings
 * Comment code
 * Write documentation
+* Remove deprecated or unused methods and functions

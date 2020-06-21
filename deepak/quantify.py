@@ -33,16 +33,15 @@ class Quantification:
         self.name = name
         self.csv = csv
         self.target = target
-        self.library = MutationLibrary()
-        self.library.add_reference_fasta(reference_fn)
-        self.reference_AA = Seq.translate(self.library.reference)
-        self.library.construct(lib_fn, pos)
-        # get library info to create shape of DF
-        self.counts = None
-        self.edits = None
-        self.stats = dict()
-        self.create_df()
         if run:
+            self.library = MutationLibrary()
+            self.library.add_reference_fasta(reference_fn)
+            self.reference_AA = Seq.translate(self.library.reference)
+            self.library.construct(lib_fn, pos)
+            self.counts = None
+            self.edits = None
+            self.stats = dict()
+            self.create_df()
             self.count_csv(self.csv, self.target)
 
     def create_df(self):
@@ -77,6 +76,13 @@ class Quantification:
             self.counts.loc[i, aa] = counts
             self.edits.loc[i, aa] = edits
         return
+
+
+def quant_from_dfs(name, count_file, edit_file):
+    x = Quantification(name, csv=None, lib_fn=None, reference_fn=None, pos=None, target=None, run=False)
+    x.counts = pd.read_csv(count_file, header=0, index_col=0)
+    x.edits = pd.read_csv(edit_file, header=0, index_col=0)
+    return x
 
 
 def translate_codon(cs, reference):
@@ -367,10 +373,6 @@ def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, targ
 
     stat_dict = calculate_stats(quant_list)
 
-    fig_dir = make_fig_dir(sample_name, output_dir)
-    make_correlation_plots(quant_list, fig_dir, min_counts=1)
-    make_heatmaps(sample_name, stat_dict, quant_list[0].reference_AA, fig_dir, min_counts=1, lfc=True)
-
     if save_quants:
         for q in quant_list:
             d = os.path.join(output_dir, q.name)
@@ -378,6 +380,10 @@ def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, targ
                 os.mkdir(d)
             q.counts.to_csv(os.path.join(d, "counts.csv"))
             q.edits.to_csv(os.path.join(d, "edits.csv"))
+
+    fig_dir = make_fig_dir(sample_name, output_dir)
+    make_correlation_plots(quant_list, fig_dir, min_counts=1)
+    make_heatmaps(sample_name, stat_dict, quant_list[0].reference_AA, fig_dir, min_counts=1, lfc=True)
 
     return
 

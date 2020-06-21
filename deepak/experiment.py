@@ -96,12 +96,12 @@ class Experiment:
                 else:
                     if search_string not in self.target_mutations:
                         n_mutations += 1
-                    #self.mutations[search_string] += 1
+                    self.mutations[search_string] += 1
                 location += 1
             else:  # Indel
                 filter_failed = "Indel"
                 n_mutations += 1
-                #self.mutations[":" + str(location) + field] += 1
+                self.mutations[":" + str(location) + field] += 1
                 if field[0] == "-":
                     location += len(field[1:])
         return lib_identity, n_mutations, filter_failed
@@ -142,10 +142,6 @@ class Experiment:
         # close csv files
         for cat, double in self.filtered_reads.items():
             double[1].close()
-        #for cat in self.categories:
-        #    stream = self.filtered_reads[cat][1]
-        #    stream.seek(0)
-        #    self.filtered_reads[cat] = pd.read_csv(stream, names=COLS)
         return True
 
     def export_summary(self, outer_dir):
@@ -161,7 +157,6 @@ class Experiment:
         return
 
     def run(self, out_dir):
-        #Create data directories and files
         self.create_output_structure(out_dir)
         self.classify()
         self.export_summary(out_dir)

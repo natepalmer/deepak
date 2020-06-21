@@ -36,13 +36,15 @@ def correlation_plot(quant_1, quant_2, min_counts):
     select = b.notnull() & a.notnull()
     rsq2 = np.corrcoef(a[select], b[select])[0, 1]
     ax2 = sns.regplot(a, b, fit_reg=False)
-    ax2.text(0.8, 0.9, r"$R^2$ = " + str(round(rsq2 ** 2, 3)), transform=ax2.transAxes)
+    ax2.text(0.1, 0.9, r"$R^2$ = " + str(round(rsq2 ** 2, 3)), transform=ax2.transAxes)
     ax2.set_xlabel(quant_1.name)
     ax2.set_ylabel(quant_2.name)
     ax2.set_title("editing rates")
     fig.suptitle(f"{quant_1.name} vs {quant_2.name} replicate correlation")
     plt.axis('square')
-    plt.tight_layout()
+    ax2.set_xlim(0, 0.5)
+    ax2.set_ylim(0, 0.5)
+    #plt.tight_layout()
     return fig
 
 

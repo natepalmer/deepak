@@ -54,7 +54,7 @@ def build_quantify_parser():
     parser.add_argument("-r", "--reference", required=True, help="Reference sequence used for alignment")
     parser.add_argument("-p", "--position", default=0, type=int,
                         help="Location of start of library sequences within reference")
-    parser.add_argument("-o", "--output", default=False, help="Directory to write output files")
+    parser.add_argument("-o", "--output", required=True, help="Directory to write output files")
     parser.add_argument("-t", "--target", required=True, help="Target mutation in paf cs format, i.e. :50*ag")
     return parser
 
