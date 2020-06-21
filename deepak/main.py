@@ -56,6 +56,7 @@ def build_quantify_parser():
                         help="Location of start of library sequences within reference")
     parser.add_argument("-o", "--output", required=True, help="Directory to write output files")
     parser.add_argument("-t", "--target", required=True, help="Target mutation in paf cs format, i.e. :50*ag")
+    parser.add_argument("--offset", default=0, help="Amino acid number offset to add to plotting index")
     return parser
 
 
@@ -90,7 +91,7 @@ def quantify():
     args = arg_parser.parse_args()
     check_required_files(args, "quantify")
     run_files(sample_name=args.name, filenames=args.files, lib_file=args.library, reference=args.reference,
-              pos=args.position, output_dir=args.output, target=args.target, save_quants=True)
+              pos=args.position, output_dir=args.output, target=args.target, offset=args.offset, save_quants=True)
 
 
 #if __name__ == "__main__":

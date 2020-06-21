@@ -29,7 +29,7 @@ class Quantification:
     corresponding to amino acids.
     """
 
-    def __init__(self, name, csv, lib_fn, reference_fn, pos, target, run=False):
+    def __init__(self, name, csv, lib_fn, reference_fn, pos, target, offset=0, run=False):
         self.name = name
         self.csv = csv
         self.target = target
@@ -43,6 +43,7 @@ class Quantification:
             self.stats = dict()
             self.create_df()
             self.count_csv(self.csv, self.target)
+            self.adjust_index(offset)
 
     def create_df(self):
         lib_members = [translate_codon(item, self.library.reference) for item in self.library.keys() if item != "wt"]
@@ -50,6 +51,12 @@ class Quantification:
         end = max(lib_members, key=lambda x: x[0])[0]
         self.counts = pd.DataFrame(np.zeros((1+end-start, 20)), index=range(start, end+1), columns=deepak.globals.AA_LIST)
         self.edits = self.counts.copy()
+
+    def adjust_index(self, number):
+        n = int(number)
+        self.counts.index += n
+        self.edits.index += n
+        return
 
     def count_csv(self, csv, target):
         data = pd.read_csv(csv, header=0, chunksize=1000, usecols=["lib_identity", "cs_tag"])
@@ -367,8 +374,8 @@ def csv_to_df_wt(fn):
     return df, wt
 
 
-def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, target, save_quants=True):
-    quant_list = [Quantification(f'{sample_name}-{i+1}', f, lib_file, reference, pos, target, run=True)
+def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, target, offset, save_quants=True):
+    quant_list = [Quantification(f'{sample_name}-{i+1}', f, lib_file, reference, pos, target, offset, run=True)
                   for i, f in enumerate(filenames)]
 
     stat_dict = calculate_stats(quant_list)
@@ -400,5 +407,5 @@ def read_csv_to_lib_df(fn, rep_number, library, target):
     return pd.DataFrame(data)
 
 
-if __name__ == "__main__":
-    run_files("5G-W2", ["../5G-W2-1M/data/Valid.csv"], "5G-W2-output", "../dms_libs/5_short.csv", "../deaminase.fa", 54, ":41*ag")
+#if __name__ == "__main__":
+#    run_files("5G-W2", ["../5G-W2-1M/data/Valid.csv"], "5G-W2-output", "../dms_libs/5_short.csv", "../deaminase.fa", 54, ":41*ag")
