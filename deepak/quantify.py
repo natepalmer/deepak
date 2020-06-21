@@ -380,6 +380,8 @@ def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, targ
 
     stat_dict = calculate_stats(quant_list)
 
+    fig_dir = make_fig_dir(sample_name, output_dir)
+
     if save_quants:
         for q in quant_list:
             d = os.path.join(output_dir, q.name)
@@ -388,7 +390,6 @@ def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, targ
             q.counts.to_csv(os.path.join(d, "counts.csv"))
             q.edits.to_csv(os.path.join(d, "edits.csv"))
 
-    fig_dir = make_fig_dir(sample_name, output_dir)
     make_correlation_plots(quant_list, fig_dir, min_counts=1)
     make_heatmaps(sample_name, stat_dict, quant_list[0].reference_AA, fig_dir, min_counts=1, lfc=True)
 
