@@ -25,7 +25,6 @@ def analyze(**kwargs):
     if kwargs["filter"] is not None:
         analysis.set_filters({"substitution": int(kwargs["filter"])})
     analysis.run(out_dir, paired=kwargs["paired"])
-    analysis.export(out_dir)
     return analysis
 
 
@@ -37,7 +36,8 @@ def build_classify_parser():
     parser.add_argument("-r", "--reference", required=True, help="Reference sequence used for alignment")
     parser.add_argument("-p", "--position", default=0, type=int,
                         help="Location of start of library sequences within reference")
-    parser.add_argument("--paired", default=False, help="If paf file is non-overlapping paired end reads")
+    parser.add_argument("--paired", nargs=2, type=int, default=False,
+                        help="If paf file is non-overlapping paired end reads")
     parser.add_argument("-o", "--output", default=False, help="Directory to write output files")
     parser.add_argument("-e", "--excluded", default=None,
                         help="File with each line containing the cs string of a mutation to be excluded from filtering")

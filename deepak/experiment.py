@@ -192,5 +192,5 @@ class Experiment:
 
     def export(self, outer_dir):
         self.export_summary(outer_dir)
-        self.export_data(outer_dir)
+        #self.export_data(outer_dir) - not needed with concurrent writing
         return
