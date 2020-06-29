@@ -1,4 +1,6 @@
 from deepak.utilities import chunk_paf
+from collections import defaultdict
+from copy import deepcopy
 
 
 class PafRecord:
@@ -80,3 +82,72 @@ class PafRecord:
 
     def __repr__(self):
         return "_".join([self.name, self.tags["cs"]])
+
+
+def read_pair_generator(file_obj):
+    """
+    Generate read pairs in a combined paf file.
+    Reads are added to read_dict until a pair is found.
+    """
+    read_dict = defaultdict(lambda: [[], []])
+    for line in file_obj:
+        read = PafRecord(line.strip())
+        qname = read.name
+        if qname not in read_dict:
+            if read.strand == "+":
+                read_dict[qname][0].append(read)
+            elif read.strand == "-":
+                read_dict[qname][1].append(read)
+        else:
+            if read.strand == "+":
+                if len(read_dict[qname][0]) == 0:
+                    yield read, read_dict[qname][1][0]
+                    del read_dict[qname][1][0]
+                    if read_dict[qname] == [[], []]:
+                        del read_dict[qname]
+                else:
+                    read_dict[qname][0].append(read)
+            elif read.strand == "-":
+                if len(read_dict[qname][1]) == 0:
+                    yield read_dict[qname][0][0], read
+                    del read_dict[qname][0][0]
+                    if read_dict[qname] == [[], []]:
+                        del read_dict[qname]
+                else:
+                    read_dict[qname][1].append(read)
+
+
+def combine_pair(r1, r2):
+    """ Combine two non-overlapping PafRecord objects corresponding to read pairs.
+    Returns a PafRecord object with ref_start, ref_end, len_aligned, and tags["cs"] adjusted for combined read."""
+
+    if r1.ref_end >= r2.ref_start:
+        return False
+
+    r1_fields = chunk_paf(r1)
+    r2_fields = chunk_paf(r2)
+    assert r1_fields[0][0] == ":"
+    assert r2_fields[0][0] == ":"
+
+    if r1.ref_start > 0:
+        n = int(r1_fields[0][1:])
+        n += r1.ref_start
+
+    n_end_matches = 0
+    if r1_fields[-1][0] == ":":
+        n_end_matches = int(r1_fields[-1][1:])
+
+    n_to_r2_mut = n_end_matches + (r2.ref_start-r1.ref_end)
+    new_middle_n = n_to_r2_mut + (int(r2_fields[0][1:]) - n_to_r2_mut)
+    new_middle = f":{new_middle_n}"
+
+    new_fields = r1_fields[:-1]
+    new_fields.append(new_middle)
+    new_fields.extend(r2_fields[1:])
+
+    x = deepcopy(r1)
+    x.ref_end = r2.ref_end
+    x.len_aligned = r1.len_aligned + r2.len_aligned
+    x.tags["cs"] = "".join(new_fields)
+
+    return x

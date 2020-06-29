@@ -40,8 +40,6 @@ def chunk_paf(paf_record):
         cs = paf_record
     else:
         cs = paf_record.tags["cs"]
-    #separable_cs = re.sub(r'(?<!\A)([-:*+])', r',\1', cs)
-    #return separable_cs.split(",")
     return re.split(r'(?=[-:*+])', cs)[1:]
 
 

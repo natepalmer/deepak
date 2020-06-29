@@ -7,7 +7,7 @@ import pandas as pd
 from Bio import SeqIO
 
 from deepak.utilities import chunk_paf, resolve_codon
-from deepak.pafparser import PafRecord
+from deepak.pafparser import PafRecord, combine_pair, read_pair_generator
 from deepak.globals import COLS
 from deepak.configuration import FILTERS
 from deepak.library import MutationLibrary
@@ -107,45 +107,59 @@ class Experiment:
         return lib_identity, n_mutations, filter_failed
 
     def set_read_status(self, paf_record, category):
-        if category == "Valid":
-            res = paf_record.to_csv()
-            self.filtered_reads[category][0].writerow(res)
+        #if category == "Valid":
+        res = paf_record.to_csv()
+        self.filtered_reads[category][0].writerow(res)
         self.read_numbers[category] += 1
         return
 
-    def classify(self, report_number=100000):
+    def classify(self, record):
+        if self.filters.test(record, "len_aligned")[0]:
+            lib_identity, n_mutations, filter_failed = self.scan_fields(record)
+            record.add_alignment_info(lib_identity, n_mutations)
+            matches = len(lib_identity)
+            if filter_failed == "Indel" and self.filters["indel"]:
+                self.set_read_status(record, "Indels")
+            elif n_mutations > self.filters["substitution"]:
+                self.set_read_status(record, "Many mutations")
+            elif matches > 1:
+                self.set_read_status(record, "Multiple identity")
+            elif matches in (0, 1):
+                if matches == 0:
+                    self.library["wt"] += 1
+                    lib_identity.add("wt")
+                self.set_read_status(record, "Valid")
+                if matches == 1:
+                    self.library[lib_identity.pop()] += 1
+        else:
+            self.note_failed_alignment(record)
+        return
+
+    def classify_wrapper(self, report_number=100000):
         with open(self.fn) as paf_file:
             for i, record in enumerate(paf_file):
                 if i % report_number == 0:
                     print("Processed {} reads, {} passed filtering".format(i, self.read_numbers["Valid"]), flush=True)
                 self.n_records += 1
-                x = PafRecord(record.strip())
-                if self.filters.test(x, "len_aligned")[0]:
-                    lib_identity, n_mutations, filter_failed = self.scan_fields(x)
-                    x.add_alignment_info(lib_identity, n_mutations)
-                    matches = len(lib_identity)
-                    if filter_failed == "Indel" and self.filters["indel"]:
-                        self.set_read_status(x, "Indels")
-                    elif n_mutations > self.filters["substitution"]:
-                        self.set_read_status(x, "Many mutations")
-                    elif matches > 1:
-                        self.set_read_status(x, "Multiple identity")
-                    elif matches in (0, 1):
-                        if matches == 0:
-                            self.library["wt"] += 1
-                            lib_identity.add("wt")
-                        self.set_read_status(x, "Valid")
-                        if matches == 1:
-                            self.library[lib_identity.pop()] += 1
+                read = PafRecord(record.strip())
+                self.classify(read)
+        return True
+
+    def classify_paired(self, align_left, align_right, report_number=100000):
+        with open(self.fn) as paf_file:
+            for r1, r2 in read_pair_generator(paf_file):
+                if abs(r1.ref_start - align_left) > 10 or abs(r2.ref_end - align_right) > 10:
+                    self.note_failed_alignment(r1)
                 else:
-                    self.note_failed_alignment(x)
-        # close csv files
-        for cat, double in self.filtered_reads.items():
-            double[1].close()
+                    read = combine_pair(r1, r2)
+                    if read is False:
+                        self.note_failed_alignment(r1)
+                    else:
+                        self.classify(read)
         return True
 
     def export_summary(self, outer_dir):
-        summary = "{}summary".format(outer_dir)
+        summary = os.path.join(outer_dir, "summary")
         if not os.path.isdir(summary):
             os.mkdir(summary)
         with open(summary + "/lib.tsv", mode='w') as lib_out:
@@ -156,14 +170,20 @@ class Experiment:
             print("\n".join(["{}\t{}".format(k, self.read_numbers[k]) for k in self.read_numbers]), file=stats_out)
         return
 
-    def run(self, out_dir):
+    def run(self, out_dir, paired=False):
         self.create_output_structure(out_dir)
-        self.classify()
+        if paired is not False:
+            self.classify_paired(paired[0], paired[1])
+        else:
+            self.classify_wrapper()
+        # close csv files
+        for cat, double in self.filtered_reads.items():
+            double[1].close()
         self.export_summary(out_dir)
         return
 
     def export_data(self, outer_dir):
-        read_data = "{}data".format(outer_dir)
+        read_data = os.path.join(outer_dir, "data")
         if not os.path.isdir(read_data):
             os.mkdir(read_data)
         for cat in self.categories:
