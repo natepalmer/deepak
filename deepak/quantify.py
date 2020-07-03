@@ -29,7 +29,7 @@ class Quantification:
     corresponding to amino acids.
     """
 
-    def __init__(self, name, csv, lib_fn, reference_fn, pos, target, offset=0, run=False):
+    def __init__(self, name, csv, lib_fn, reference_fn, pos, target, offset=0, run=False, double=False):
         self.name = name
         self.csv = csv
         self.target = target
@@ -42,7 +42,12 @@ class Quantification:
             self.edits = None
             self.stats = dict()
             self.create_df()
-            self.count_csv(self.csv, self.target)
+            if double is not False:
+                # In double mode, double is the cs string mutation, and csv is used to get wt data, while the library
+                # data is read from the Multiple identity file
+                self.count_double(self.csv, double, self.target)
+            else:
+                self.count_csv(self.csv, self.target)
             self.adjust_index(offset)
 
     def create_df(self):
@@ -71,6 +76,31 @@ class Quantification:
                         wt_edits += 1
                 else:
                     position, aa = translate_codon(identity, self.library.reference)
+                    self.counts.loc[position, aa] += 1
+                    if search_snp_paf(row["cs_tag"], target):
+                        self.edits.loc[position, aa] += 1
+        self.tally_wt(wt_counts, wt_edits)
+        return
+
+    def count_double(self, csv, double, target):
+        data = pd.read_csv(csv, header=0, chunksize=1000, usecols=["lib_identity", "cs_tag"])
+        wt_counts = 0
+        wt_edits = 0
+        for chunk in data:  # read Valid.csv for "wt" (really containing the "double" mutation) data
+            for i, row in chunk.iterrows():
+                identity = row["lib_identity"]
+                if identity == double:
+                    wt_counts += 1
+                    if search_snp_paf(row["cs_tag"], target):
+                        wt_edits += 1
+        m_id_fn = os.path.join(csv.rpartition("/")[0], "Multiple identity.csv")
+        multiple_identity = pd.read_csv(m_id_fn, header=0, chunksize=1000, usecols=["lib_identity", "cs_tag"])
+        for chunk in multiple_identity:
+            for i, row in chunk.iterrows():
+                ids = row["lib_identity"].split("|")
+                if len(ids) == 2 and double in ids:
+                    ids.remove(double)
+                    position, aa = translate_codon(ids[0], self.library.reference)
                     self.counts.loc[position, aa] += 1
                     if search_snp_paf(row["cs_tag"], target):
                         self.edits.loc[position, aa] += 1
@@ -225,19 +255,6 @@ def get_plotting_frame(df, values):
     return x[deepak.globals.AA_LIST]
 
 
-def read_data_set(obj_fn, target):
-    analysis = load_pickled_data(obj_fn)
-    df, wt = read_analysis(analysis, target)
-    print("Loaded pickled data from {}".format(obj_fn))
-    return df, wt
-
-
-def aggregate_data(base, sample, n_replicates, target, append=""):
-    obj_fns = [base.format(sample+str(i)+append) for i in range(1, n_replicates+1)]
-    data_sets = list(map(read_data_set, obj_fns, [target]*n_replicates))
-    return data_sets
-
-
 def combine_replicates(data_sets):
     df = data_sets[0][0].copy()
     wt = data_sets[0][1].copy()
@@ -251,32 +268,6 @@ def combine_replicates(data_sets):
             df[name] = d[0][new_col]
             wt[name] = d[1][new_col]
     return df, wt
-
-
-def load_replicate_data(sample, base_dir, n_reps, reference, append):
-    global reference_fn
-    reference_fn = reference
-    if not base_dir.endswith("/"):
-        base_dir += "/"
-    base = base_dir+"Pafparser-{}_aln/workspace.pyobj"
-
-    if "T" in sample:
-        if "3" in sample:
-            target = target_T3
-        else:  # 5
-            target = target_T5
-    else:  # G
-        if "3" in sample:
-            target = target_G3
-        else:  # 5
-            target = target_G5
-
-    # Load data (2 replicates)
-    data_sets = aggregate_data(base, sample, n_reps, target, append=append)
-
-    df, wt = combine_replicates(data_sets)
-
-    return df, wt, data_sets
 
 
 def calc_geom_fc(quant_list, total_counts):
@@ -328,45 +319,6 @@ def calculate_stats(quant_list):
     return stat_dict
 
 
-def calculate(df, wt, reference):
-    df = add_seq_info(df)
-
-    wt_n = int(wt["counts"])
-    wt_rate = float(wt["edited_counts"] / wt_n)
-    wt_aa_seq = reference_aa(df, reference)
-
-    df = add_stats(df, wt_rate, wt_n)
-
-    density = replace_wt(get_plotting_frame(df, "counts"), wt_aa_seq, wt_n)
-
-    log_pad = 0.000001
-    geom = get_plotting_frame(df, "geom_editing_rate")
-    geom_norm = replace_wt(geom / wt_rate, wt_aa_seq, 1)
-    geom_fold_change = np.log2(geom_norm + log_pad)
-
-    rates = get_plotting_frame(df, "editing_rate")
-    normalized_rates = replace_wt(rates / wt_rate, wt_aa_seq, 1)
-    log2_fold_change = np.log2(normalized_rates + log_pad)
-
-    z_scores = replace_wt(get_plotting_frame(df, "z-score"), wt_aa_seq, 0)
-    std_err = replace_wt(get_plotting_frame(df, "std_error"), wt_aa_seq, np.nan)
-
-    return wt_aa_seq, density, geom_fold_change, log2_fold_change, z_scores, std_err
-
-
-def pafparser_to_csv(sample, base_dir, n_reps, reference, append):
-    df, wt, data_sets = load_replicate_data(sample, base_dir, n_reps, reference, append)
-    for i in range(2):
-        for item in ("counts", "edited_counts"):
-            wt["rep{}_{}".format(i, item)] = data_sets[i][1][item]
-    df_seq = add_seq_info(df)
-    wt_aa_seq = reference_aa(df, reference)
-    df_seq = fill_aa_seq(df_seq, wt_aa_seq)
-    full = pd.concat([df_seq, wt], sort=False, ignore_index=True)
-    full.to_csv(base_dir+sample+".csv")
-    return df_seq, wt
-
-
 def csv_to_df_wt(fn):
     df = pd.read_csv(fn, header=0, index_col=0)
     wt = df.loc[df["name"] == "wt"]
@@ -374,9 +326,9 @@ def csv_to_df_wt(fn):
     return df, wt
 
 
-def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, target, offset, save_quants=True):
-    quant_list = [Quantification(f'{sample_name}-{i+1}', f, lib_file, reference, pos, target, offset, run=True)
-                  for i, f in enumerate(filenames)]
+def run_files(sample_name, filenames, output_dir, lib_file, reference, pos, target, offset, double, save_quants=True):
+    quant_list = [Quantification(f'{sample_name}-{i+1}', f, lib_file, reference, pos, target, offset,
+                                 run=True, double=double) for i, f in enumerate(filenames)]
 
     stat_dict = calculate_stats(quant_list)
 
@@ -406,7 +358,3 @@ def read_csv_to_lib_df(fn, rep_number, library, target):
                "rep{}_counts".format(rep_number): counts}
         data.append(row)
     return pd.DataFrame(data)
-
-
-#if __name__ == "__main__":
-#    run_files("5G-W2", ["../5G-W2-1M/data/Valid.csv"], "5G-W2-output", "../dms_libs/5_short.csv", "../deaminase.fa", 54, ":41*ag")

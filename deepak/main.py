@@ -58,6 +58,7 @@ def build_quantify_parser():
     parser.add_argument("-o", "--output", required=True, help="Directory to write output files")
     parser.add_argument("-t", "--target", required=True, help="Target mutation in paf cs format, i.e. :50*ag")
     parser.add_argument("--offset", default=0, help="Amino acid number offset to add to plotting index")
+    parser.add_argument("-d", "--double", default=False, help="Mutation to treat as wt")
     return parser
 
 
@@ -89,4 +90,5 @@ def quantify():
     args = arg_parser.parse_args()
     check_required_files(args, "quantify")
     run_files(sample_name=args.name, filenames=args.files, lib_file=args.library, reference=args.reference,
-              pos=args.position, output_dir=args.output, target=args.target, offset=args.offset, save_quants=True)
+              pos=args.position, output_dir=args.output, target=args.target, offset=args.offset, double=args.double,
+              save_quants=True)
