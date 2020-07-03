@@ -123,31 +123,28 @@ def combine_pair(r1, r2):
 
     if r1.ref_end >= r2.ref_start:
         return False
+    gap_length = r2.ref_start - r1.ref_end
 
     r1_fields = chunk_paf(r1)
     r2_fields = chunk_paf(r2)
-    assert r1_fields[0][0] == ":"
-    assert r2_fields[0][0] == ":"
 
-    if r1.ref_start > 0:
-        n = int(r1_fields[0][1:])
-        n += r1.ref_start
+    assert r2_fields[0][0] == ":"  # Position normalize means r2 should always start with a match
+    n_r2_start_matches = int(r2_fields[0][1:])
 
-    n_end_matches = 0
     if r1_fields[-1][0] == ":":
-        n_end_matches = int(r1_fields[-1][1:])
-
-    n_to_r2_mut = n_end_matches + (r2.ref_start-r1.ref_end)
-    new_middle_n = n_to_r2_mut + (int(r2_fields[0][1:]) - n_to_r2_mut)
-    new_middle = f":{new_middle_n}"
-
-    new_fields = r1_fields[:-1]
-    new_fields.append(new_middle)
-    new_fields.extend(r2_fields[1:])
+        # increase the length of r1 final matches to cover the gap and r2 start matches
+        n_end_matches = int(r1_fields[-1][1:]) + gap_length + n_r2_start_matches - r2.ref_start
+        r1_fields[-1] = f":{n_end_matches}"
+        # delete r2 start matches now accounted for at the end of r1
+        r2_fields = r2_fields[1:]
+    else:
+        # change the first field of r2 to account for area covered by r1
+        n_start_matches = n_r2_start_matches - r1.ref_end
+        r2_fields[0] = f":{n_start_matches}"
 
     x = deepcopy(r1)
     x.ref_end = r2.ref_end
     x.len_aligned = r1.len_aligned + r2.len_aligned
-    x.tags["cs"] = "".join(new_fields)
+    x.tags["cs"] = "".join(r1_fields + r2_fields)
 
     return x

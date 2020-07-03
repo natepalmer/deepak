@@ -66,7 +66,7 @@ def check_required_files(arguments, caller):
         raise Exception("Cannot find library file: " + arguments.library)
     if not os.path.isfile(arguments.reference):
         raise Exception("Cannot find reference file: " + arguments.reference)
-    if caller == "classify_wrapper":
+    if caller == "classify":
         if not os.path.isfile(arguments.reads):
             raise Exception("Cannot find read file: " + arguments.reads)
     elif caller == "quantify":
@@ -79,12 +79,9 @@ def check_required_files(arguments, caller):
 def classify():
     arg_parser = build_classify_parser()
     args = arg_parser.parse_args()
-    check_required_files(args, "classify_wrapper")
+    check_required_files(args, "classify")
     analyze(aligned_reads=args.reads, library=args.library, reference=args.reference,
             position=args.position, output=args.output, excluded=args.excluded, filter=args.filter, paired=args.paired)
-    #base_name = "../5G-W2-1M"
-    #analyze(aligned_reads=base_name+".paf", library="../dms_libs/5_short.csv", reference="../deaminase.fa",
-    #        position=54, output=base_name, excluded="../targets.txt", filter=0)
 
 
 def quantify():
@@ -93,7 +90,3 @@ def quantify():
     check_required_files(args, "quantify")
     run_files(sample_name=args.name, filenames=args.files, lib_file=args.library, reference=args.reference,
               pos=args.position, output_dir=args.output, target=args.target, offset=args.offset, save_quants=True)
-
-
-#if __name__ == "__main__":
-#    classify_wrapper()
