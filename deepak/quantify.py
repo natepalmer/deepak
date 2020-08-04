@@ -288,9 +288,9 @@ def calculate_stats(quant_list):
     * counts
     * geom
     * mean
-    * z_scores
-    * std_err
-    * p_values
+    * z-scores
+    * std_error
+    * p-value
     """
 
     total_counts = reduce(lambda x, y: x.add(y, fill_value=0), [rep.counts for rep in quant_list])
